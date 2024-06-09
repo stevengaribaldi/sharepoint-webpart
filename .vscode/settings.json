@@ -1,0 +1,164 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+  // Configure glob patterns for excluding files and folders in the file explorer.
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/bower_components": true,
+    "**/coverage": true,
+    "**/jest-output": true,
+    "**/lib-amd": true,
+    "src/**/*.scss.ts": true
+  },
+  "typescript.tsdk": ".\\node_modules\\typescript\\lib",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.letterSpacing": 0.5,
+  "editor.lineHeight": 25,
+  "editor.fontSize": 17,
+  "files.trimTrailingWhitespace": true,
+  "editor.fontWeight": "400",
+  "prettier.eslintIntegration": true,
+  "editor.cursorWidth": 5,
+  "editor.cursorBlinking": "phase",
+  // "editor.renderWhitespace": "all",
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": [
+          // Try targeting properties in general
+          // "support.type.property-name",
+          "entity.other.attribute-name",
+          // "storage.type.js", // For JavaScript
+          // "storage.type.ts", // For TypeScript
+          // "storage.type.jsx", // For JSX
+          // "storage.type.tsx" // For TSX
+        ],
+        "settings": {
+          "foreground": "#fb7900b1",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "entity.name.tag", // For HTML-like JSX tags
+        "settings": {
+          "foreground": "#828a8e", // Example color
+        }
+      },
+      // {
+      //     "scope": "support.class.component", // For React components, if available
+      //     "settings": {
+      //         "foreground": "#139bdf", // Example color
+      //         "fontStyle": "italic bold"
+      //     }
+      // },
+      {
+        "scope": [
+          "variable.other.readwrite.alias.tsx",
+          "variable.other.readwrite.alias.ts"
+        ],
+        "settings": {
+          "foreground": "#139bdf" // Example: change to your preferred color
+        }
+      },
+      {
+        "scope": "string", // Example scope for strings like `"hello"`, `'hello'`, etc.
+        "settings": {
+          "foreground": "#61a5c7" // Example: change to your preferred color
+        }
+      },
+      {
+        "scope": "punctuation.definition.tag",
+        // Example scope for punctuation in tags
+        "settings": {
+          "foreground": "#fcfbfb" // Example: change to your preferred color
+        }
+      },
+      {
+        "scope": "support.class", // Example scope for types like `HTMLDivElement`
+        "settings": {
+          "foreground": "#25ceaa",
+          "fontStyle": "italic"
+        }
+      },
+      {
+        "scope": [
+          "entity.name.type.class",
+          "constant.language",
+          // "storage.type.ts",
+          "keyword.operator.expression.typeof",
+          "entity.name.type.enum",
+          "entity.name.type.interface",
+          "storage.type.interface",
+          "keyword.operator.expression.typeof.ts",
+          // "storage.type.ts",
+          "storage.type.interface.ts",
+          "entity.name.type.ts",
+          "entity.name.type,",
+          "entity.name.type.alias",
+          "entity.name.type.interface",
+          "keyword.operator.type.annotation",
+          "keyword.operator.expression.instanceof",
+        ],
+        "settings": {
+          "foreground": "#00ffc8",
+          // "fontStyle": "italic"
+        }
+      },
+      {
+        "scope": [
+          "variable.other.readwrite",
+          "variable.other.constant",
+          // "constant.language",
+        ],
+        "settings": {
+          "foreground": "#326de4",
+          "fontStyle": "italic" // Applies underline to function names
+        }
+      },
+      {
+        "scope": [
+          "entity.name.function"
+        ],
+        "settings": {
+          "foreground": "#9ea3f0",
+          "fontStyle": "underline"
+        }
+      },
+      {
+        "scope": "variable.parameter",
+        "settings": {
+          "foreground": "#FFC600", // Example: Yellow color for parameters
+          "fontStyle": "italic bold" // Optional: fontStyle can be "bold", "italic", etc.
+        }
+      },
+      {
+        "scope": [
+          " keyword.operator.expression.typeof",
+          // "entity.name.type.enum",
+          // "entity.name.type.interface",
+          "storage.type.interface",
+          "storage.type.type",
+          "storage.type.enum",
+          "storage.type.extends",
+          "storage.type.generic",
+          "keyword.operator.type.union"
+        ],
+        "settings": {
+          "foreground": "#15d3aad0",
+          "fontStyle": "italic bold" // Optional: fontStyle can be "bold", "italic", etc.
+        }
+      },
+    ],
+  }
+}
