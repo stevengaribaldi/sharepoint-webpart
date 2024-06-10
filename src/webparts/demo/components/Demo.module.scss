@@ -63,3 +63,17 @@
 .clear {
   clear: both;
 }
+// styles.scss
+
+@keyframes shimmer {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.shimmer-animation {
+  animation: shimmer 2s linear infinite;
+}
