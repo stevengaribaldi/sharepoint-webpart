@@ -10,7 +10,7 @@ import {
 
 import * as strings from 'DemoWebPartStrings';
 import Demo from './components/Demo';
-import { IAsyncAwaitPnPJsProps } from './components/Demo';
+import { IDemoProps } from './components/Demo';
 
 import { spfi, SPFI, SPFx } from "@pnp/sp";
 
@@ -27,7 +27,7 @@ export default class DemoWebPart extends BaseClientSideWebPart<IDemoWebPartProps
   }
 
   public render(): void {
-    const element: React.ReactElement<IAsyncAwaitPnPJsProps> = React.createElement(
+    const element: React.ReactElement<IDemoProps> = React.createElement(
       Demo,
       {
         description: this.properties.description,
