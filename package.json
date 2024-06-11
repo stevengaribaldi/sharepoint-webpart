@@ -10,7 +10,9 @@
     "build": "gulp bundle",
     "clean": "gulp clean",
     "test": "gulp test",
-    "dev": "gulp serve --nobrowser"
+    "dev": "gulp serve --nobrowser",
+    "restart": "gulp clean && gulp bundle && gulp serve --nobrowser"
+
   },
   "dependencies": {
     "@fluentui/react": "^8.106.4",
