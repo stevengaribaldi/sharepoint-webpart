@@ -12,6 +12,7 @@ import * as strings from 'DemoWebPartStrings';
 import Demo from './components/Demo';
 import { IDemoProps } from './components/Demo';
 
+
 import { spfi, SPFI, SPFx } from "@pnp/sp";
 
 export interface IDemoWebPartProps {
@@ -31,7 +32,8 @@ const element: React.ReactElement<IDemoProps> = React.createElement(
       Demo,
       {
         description: this.properties.description,
-        sp: this.sp
+        sp: this.sp,
+        context: this.context
       }
     );
 

@@ -1,12 +1,9 @@
 
-
-import React, { useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-use-before-define */
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import styles from "./Demo.module.scss";
 import { IFile, IResponseItem } from "./interface";
-import {
-  SPFI,
-  // spfi, RequestDigest
-} from "@pnp/sp";
+import { SPFI, spfi, SPFx, RequestDigest } from "@pnp/sp";
 import "@pnp/sp/webs";
 import "@pnp/sp/lists";
 import "@pnp/sp/items";
@@ -16,40 +13,67 @@ import "@pnp/sp/files";
 import "@pnp/sp/folders";
 import "@pnp/sp/sharing";
 import { Logger, LogLevel } from "@pnp/logging";
-// import { SharingRole } from "@pnp/sp/sharing";
+import { Caching } from "@pnp/queryable";
+import Bottleneck from 'bottleneck';
 
 export interface IDemoProps {
   description: string;
   sp: SPFI;
+  context: any;
 }
 
-const Demo: React.FC<IDemoProps> = ({ description, sp, }) => {
+const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
   const [items, setItems] = useState<IFile[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [userEmail, setUserEmail] = useState<string>("");
   const LOG_SOURCE = "Demo";
   const LIBRARY_NAME = "Documents";
 
-  // const sp = spfi().using(SPFx(context));  // Initialize sp with SPFx context
+  const limiter = useMemo(() => new Bottleneck({
+    minTime: 200
+  }), []);
 
-
-  const getCurrentUserEmail = async (): Promise<void> => {
+  const spInstance = useMemo(() => spfi()
+    .using(SPFx(context))
+    .using(RequestDigest())
+    .using(Caching({ store: "session", keyFactory: (url) => `${url}:${userEmail}` })), [context, userEmail]);
+console.log(spInstance);
+  const getCurrentUserEmail = useCallback(async (): Promise<void> => {
     try {
-      const user = await sp.web.currentUser();
+      const user = await spInstance.web.currentUser();
       setUserEmail(user.Email);
+      console.log(`Current user email retrieved: ${user.Email}`);
       Logger.write(`Current user email: ${user.Email}`, LogLevel.Info);
     } catch (error) {
       Logger.write(`Error getting current user email: ${JSON.stringify(error)}`, LogLevel.Error);
       setErrors(prevErrors => [...prevErrors, error.message]);
     }
+  }, [spInstance]);
+
+  const handleThrottling = async (fn: () => Promise<any>, retries = 3): Promise<any> => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (retries > 0 && (error.status === 429 || error.status === 503)) {
+        const retryAfter = error.headers['Retry-After'] || 1;
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        return handleThrottling(fn, retries - 1);
+      } else {
+        throw error;
+      }
+    }
   };
 
-  const readAllFilesSize = async (libraryName: string): Promise<void> => {
+  const readAllFilesSize = useCallback(async (libraryName: string): Promise<void> => {
     try {
-      const response: IResponseItem[] = await sp.web.lists
-        .getByTitle(libraryName)
-        .items.select("Id", "Title", "FileLeafRef", "File/Length")
-        .expand("File/Length")();
+      const response: IResponseItem[] = await handleThrottling(() =>
+        limiter.schedule(() =>
+          spInstance.web.lists
+            .getByTitle(libraryName)
+            .items.select("Id", "Title", "FileLeafRef", "File/Length")
+            .expand("File/Length")()
+        )
+      );
 
       const files: IFile[] = response.map((item: IResponseItem) => ({
         Id: item.Id,
@@ -58,22 +82,33 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, }) => {
         Name: item.FileLeafRef,
       }));
 
+      console.log(`Files retrieved: ${JSON.stringify(files)}`);
       setItems(files);
     } catch (error) {
       Logger.write(`${LOG_SOURCE} (readAllFilesSize) - ${JSON.stringify(error)} - `, LogLevel.Error);
       setErrors(prevErrors => [...prevErrors, error.message]);
     }
-  };
+  }, [spInstance, limiter]);
 
-  const batchUpdateItemTitles = async (): Promise<void> => {
+  useEffect(() => {
+    const fetchData = async () => {
+      await getCurrentUserEmail();
+      await readAllFilesSize(LIBRARY_NAME);
+    };
+
+    fetchData().catch(error => {
+      Logger.write(`Error initializing data: ${error}`, LogLevel.Error);
+    });
+  }, [getCurrentUserEmail, readAllFilesSize, LIBRARY_NAME]);
+
+  const batchUpdateItemTitles = useCallback(async (): Promise<void> => {
     try {
-      const [batchedSP, execute] = sp.batched();
+      const [batchedSP, execute] = spInstance.batched();
       const list = batchedSP.web.lists.getByTitle(LIBRARY_NAME);
 
       for (const item of items) {
-        list.items.getById(item.Id).update({ Title: `${item.Name}-Updatbcvvvvvved` }).catch(async (error) => {
+        list.items.getById(item.Id).update({ Title: `${item.Name}-updated` }).catch(async (error) => {
           if (error.message.includes('is locked for shared use')) {
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             const lockedByUser = await getLockedByUser(item.Name);
             const errorMessage = `File is locked: ${item.Name} by ${lockedByUser}`;
             setErrors(prevErrors => [...prevErrors, errorMessage]);
@@ -84,23 +119,25 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, }) => {
       }
 
       await execute();
+      console.log(`Batch update executed`);
       await readAllFilesSize(LIBRARY_NAME);
     } catch (error) {
       Logger.write(`Error batch updating item titles: ${JSON.stringify(error)}`, LogLevel.Error);
       setErrors(prevErrors => [...prevErrors, error.message]);
     }
-  };
+  }, [spInstance, items, readAllFilesSize]);
 
-  const getLockedByUser = async (fileName: string): Promise<string> => {
+  const getLockedByUser = useCallback(async (fileName: string): Promise<string> => {
     try {
-      const file = sp.web.getFolderByServerRelativePath(LIBRARY_NAME).files.getByUrl(fileName);
+      const file = spInstance.web.getFolderByServerRelativePath(LIBRARY_NAME).files.getByUrl(fileName);
       const user = await file.getLockedByUser();
+      console.log(`Locked by user retrieved: ${user?.Email}`);
       return user?.Email || 'Unknown user';
     } catch (error) {
       Logger.write(`Error getting locked by user for file ${fileName}: ${JSON.stringify(error)}`, LogLevel.Error);
       return 'Unknown user';
     }
-  };
+  }, [spInstance, LIBRARY_NAME]);
 
   const getErrors = (): JSX.Element | null => {
     return errors.length > 0 ? (
@@ -113,16 +150,6 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, }) => {
     ) : null;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      await getCurrentUserEmail();
-      await readAllFilesSize(LIBRARY_NAME);
-    };
-
-    fetchData().catch(error => {
-      Logger.write(`Error initializing data: ${error}`, LogLevel.Error);
-    });
-  }, [getCurrentUserEmail, readAllFilesSize, LIBRARY_NAME]);
   const totalDocs: number = items.reduce((acc: number, item: IFile) => acc + Number(item.Size), 0);
 
   return (
@@ -161,32 +188,5 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, }) => {
     </div>
   );
 };
-
-// const sp = spfi().using(RequestDigest());
-
-// async function grantAccess(resourceUrl: string, userEmail: string, role: SharingRole = SharingRole.View, isFolder: boolean = false) {
-//   try {
-//     if (isFolder) {
-//       const result = await sp.web.getFolderByServerRelativePath(resourceUrl).shareWith(userEmail, role, true);
-//       console.log(`Folder shared successfully: ${JSON.stringify(result, null, 2)}`);
-//     } else {
-//       const result = await sp.web.getFileByServerRelativePath(resourceUrl).shareWith(userEmail, role);
-//       console.log(`File shared successfully: ${JSON.stringify(result, null, 2)}`);
-//     }
-//   } catch (error) {
-//     console.error("Error sharing resource: ", error);
-//   }
-// }
-
-// Usage
-// const folderUrl = "/sites/dev/Shared Documents/folder1";
-// const fileUrl = "/sites/dev/Shared Documents/test.txt";
-// const userEmail = "i:0#.f|membership|user@site.com";
-
-// Share a folder with edit permissions
-// grantAccess(folderUrl, userEmail, SharingRole.Edit, true);
-
-// // Share a file with view permissions
-// grantAccess(fileUrl, userEmail, SharingRole.View, false);
 
 export default Demo;
