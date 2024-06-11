@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import styles from "./Demo.module.scss";
@@ -26,6 +25,7 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
   const [items, setItems] = useState<IFile[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [newTitles, setNewTitles] = useState<{ [key: number]: string }>({});
   const LOG_SOURCE = "Demo";
   const LIBRARY_NAME = "Documents";
 
@@ -37,7 +37,8 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
     .using(SPFx(context))
     .using(RequestDigest())
     .using(Caching({ store: "session", keyFactory: (url) => `${url}:${userEmail}` })), [context, userEmail]);
-console.log(spInstance);
+  console.log(spInstance);
+
   const getCurrentUserEmail = useCallback(async (): Promise<void> => {
     try {
       const user = await spInstance.web.currentUser();
@@ -127,6 +128,25 @@ console.log(spInstance);
     }
   }, [spInstance, items, readAllFilesSize]);
 
+  const updateItemTitle = useCallback(async (itemId: number, newTitle: string): Promise<void> => {
+    try {
+      await spInstance.web.lists.getByTitle(LIBRARY_NAME).items.getById(itemId).update({ Title: newTitle });
+      console.log(`Item ${itemId} updated to title ${newTitle}`);
+      await readAllFilesSize(LIBRARY_NAME);
+    } catch (error) {
+      Logger.write(`Error updating item title: ${JSON.stringify(error)}`, LogLevel.Error);
+      setErrors(prevErrors => [...prevErrors, error.message]);
+      console.error(`Error in updateItemTitle for item ${itemId}:`, error);
+    }
+  }, [spInstance, readAllFilesSize]);
+
+  const handleTitleChange = (itemId: number, newTitle: string) => {
+    setNewTitles(prevTitles => ({
+      ...prevTitles,
+      [itemId]: newTitle
+    }));
+  };
+
   const getLockedByUser = useCallback(async (fileName: string): Promise<string> => {
     try {
       const file = spInstance.web.getFolderByServerRelativePath(LIBRARY_NAME).files.getByUrl(fileName);
@@ -135,6 +155,7 @@ console.log(spInstance);
       return user?.Email || 'Unknown user';
     } catch (error) {
       Logger.write(`Error getting locked by user for file ${fileName}: ${JSON.stringify(error)}`, LogLevel.Error);
+      console.error("Error in getLockedByUser:", error);
       return 'Unknown user';
     }
   }, [spInstance, LIBRARY_NAME]);
@@ -171,6 +192,12 @@ console.log(spInstance);
                 <div className={styles.left}>{item.Name}</div>
                 <div className={styles.left}>{item.Title}</div>
                 <div className={styles.right}>{(item.Size / 1024).toFixed(2)}</div>
+                <input
+                  type="text"
+                  value={newTitles[item.Id] || item.Title}
+                  onChange={(e) => handleTitleChange(item.Id, e.target.value)}
+                />
+                <button onClick={() => updateItemTitle(item.Id, newTitles[item.Id] || item.Title)}>Update Title</button>
                 <div className={styles.clear} />
               </div>
             ))}
