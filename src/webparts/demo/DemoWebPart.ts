@@ -27,7 +27,7 @@ export default class DemoWebPart extends BaseClientSideWebPart<IDemoWebPartProps
   }
 
   public render(): void {
-    const element: React.ReactElement<IDemoProps> = React.createElement(
+const element: React.ReactElement<IDemoProps> = React.createElement(
       Demo,
       {
         description: this.properties.description,
