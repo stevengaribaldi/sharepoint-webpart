@@ -36,6 +36,7 @@ export interface IFile {
   Title: string;
   Name: string;
   Size: number;
+
 }
 // create PnP JS response interface for File
 export interface IResponseFile {

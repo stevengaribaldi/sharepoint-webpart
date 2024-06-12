@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import styles from "./Demo.module.scss";
@@ -14,14 +16,15 @@ import "@pnp/sp/sharing";
 import { Logger, LogLevel } from "@pnp/logging";
 import { Caching } from "@pnp/queryable";
 import Bottleneck from 'bottleneck';
+import { User } from 'lucide-react';
 
 export interface IDemoProps {
   description: string;
   sp: SPFI;
-  context: any;
+  context: any | undefined;
 }
 
-const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
+const Demo: React.FC<IDemoProps> = ({ context }) => {
   const [items, setItems] = useState<IFile[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [userEmail, setUserEmail] = useState<string>("");
@@ -76,11 +79,14 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
         )
       );
 
-      const files: IFile[] = response.map((item: IResponseItem) => ({
-        Id: item.Id,
-        Title: item.Title,
-        Size: item.File.Length,
-        Name: item.FileLeafRef,
+      const files: IFile[] = await Promise.all(response.map(async (item: IResponseItem) => {
+        // const lockedByUser = await getLockedByUser(item.FileLeafRef);
+        return {
+          Id: item.Id,
+          Title: item.Title,
+          Size: item.File.Length,
+          Name: item.FileLeafRef,
+        };
       }));
 
       console.log(`Files retrieved: ${JSON.stringify(files)}`);
@@ -107,26 +113,29 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
       const [batchedSP, execute] = spInstance.batched();
       const list = batchedSP.web.lists.getByTitle(LIBRARY_NAME);
 
-      for (const item of items) {
-        list.items.getById(item.Id).update({ Title: `${item.Name}-updated` }).catch(async (error) => {
+      const updatedItems = await Promise.all(items.map(async (item) => {
+        try {
+          await list.items.getById(item.Id).update({ Title: `${item.Name}-updated` });
+          return { ...item, Title: `${item.Name}-updated` };
+        } catch (error) {
           if (error.message.includes('is locked for shared use')) {
             const lockedByUser = await getLockedByUser(item.Name);
-            const errorMessage = `File is locked: ${item.Name} by ${lockedByUser}`;
-            setErrors(prevErrors => [...prevErrors, errorMessage]);
+            return { ...item, LockedUser: lockedByUser };
           } else {
             throw error;
           }
-        });
-      }
+        }
+      }));
 
       await execute();
       console.log(`Batch update executed`);
+      setItems(updatedItems);
       await readAllFilesSize(LIBRARY_NAME);
     } catch (error) {
       Logger.write(`Error batch updating item titles: ${JSON.stringify(error)}`, LogLevel.Error);
       setErrors(prevErrors => [...prevErrors, error.message]);
     }
-  }, [spInstance, items, readAllFilesSize]);
+  }, [spInstance, items,  readAllFilesSize]);
 
   const updateItemTitle = useCallback(async (itemId: number, newTitle: string): Promise<void> => {
     try {
@@ -150,13 +159,20 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
   const getLockedByUser = useCallback(async (fileName: string): Promise<string> => {
     try {
       const file = spInstance.web.getFolderByServerRelativePath(LIBRARY_NAME).files.getByUrl(fileName);
+      const url = file.toUrl();
+      console.log(`Checking file at URL: ${url}`);
+      await file.select('Exists')();
       const user = await file.getLockedByUser();
       console.log(`Locked by user retrieved: ${user?.Email}`);
-      return user?.Email || 'Unknown user';
+      return user?.Email || 'none';
     } catch (error) {
+      if (error?.message?.includes('System.IO.FileNotFoundException')) {
+        Logger.write(`File not found: ${fileName}`, LogLevel.Error);
+        return 'none';
+      }
       Logger.write(`Error getting locked by user for file ${fileName}: ${JSON.stringify(error)}`, LogLevel.Error);
       console.error("Error in getLockedByUser:", error);
-      return 'Unknown user';
+      return 'none';
     }
   }, [spInstance, LIBRARY_NAME]);
 
@@ -177,19 +193,22 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
     <div className={styles.demo}>
       <div className={"ms-Grid-row ms-bgColor-themeDark ms-fontColor-white " + styles.row}>
         <div className="ms-Grid-col ms-u-lg10 ms-u-xl8 ms-u-xlPush2 ms-u-lgPush1">
-          <span className="ms-font-xl ms-fontColor-white">Welcome to SharePoint Async Await SP PnP JS Demo!</span>
+          <span className="ms-font-xl ms-fontColor-white">Welcome to Yehfedra SharePoint PnP/sp Demo</span>
           {getErrors()}
-          <p className="ms-font-l ms-fontColor-white">Current User Email: {userEmail}</p>
+
+          <p className="ms-font-l ms-fontColor-white">Current User Email: <User color="blue" size={20} /> {userEmail}</p>
           <p className="ms-font-l ms-fontColor-white">List of documents:</p>
           <div>
             <div className={styles.row}>
               <div className={styles.left}>Name</div>
               <div className={styles.right}>Size (KB)</div>
+              <div className={styles.left}>Locked By</div>
               <div className={`${styles.clear} ${styles.header}`} />
             </div>
             {items.map((item, idx) => (
               <div key={idx} className={styles.row}>
                 <div className={styles.left}>{item.Name}</div>
+                <div className={styles.left}>{item.Title}</div>
                 <div className={styles.left}>
                   <input
                     type="text"
@@ -198,6 +217,7 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
                   />
                 </div>
                 <div className={styles.right}>{(item.Size / 1024).toFixed(2)}</div>
+                {/* <div className={styles.left}>{item.LockedUser}</div> */}
                 <button onClick={() => updateItemTitle(item.Id, newTitles[item.Id] !== undefined ? newTitles[item.Id] : item.Title)}>
                   Update Title
                 </button>
@@ -212,7 +232,7 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
             </div>
           </div>
           <button onClick={() => readAllFilesSize(LIBRARY_NAME)}>Refresh Files</button>
-          <button onClick={() => batchUpdateItemTitles()}>Batch Update Item Titles</button>
+          <button onClick={() => batchUpdateItemTitles()}>Update Item Titles</button>
         </div>
       </div>
     </div>
@@ -220,29 +240,3 @@ const Demo: React.FC<IDemoProps> = ({ description, sp, context }) => {
 };
 
 export default Demo;
-
-
-// // const sp = spfi().using(RequestDigest());
-
-// // async function grantAccess(resourceUrl: string, userEmail: string, role: SharingRole = SharingRole.View, isFolder: boolean = false) {
-// //   try {
-// //     if (isFolder) {
-// //       const result = await sp.web.getFolderByServerRelativePath(resourceUrl).shareWith(userEmail, role, true);
-// //       console.log(`Folder shared successfully: ${JSON.stringify(result, null, 2)}`);
-// //     } else {
-// //       const result = await sp.web.getFileByServerRelativePath(resourceUrl).shareWith(userEmail, role);
-// //       console.log(`File shared successfully: ${JSON.stringify(result, null, 2)}`);
-// //     }
-// //   } catch (error) {
-// //     console.error("Error sharing resource: ", error);
-// //   }
-// // }
-
-// // // Usage
-// // const folderUrl = "/sites/dev/Shared Documents/folder1";
-// // const fileUrl = "/sites/dev/Shared Documents/test.txt";
-// // const userEmail = "i:0#.f|membership|user@site.com";
-
-// // grantAccess(folderUrl, userEmail, SharingRole.Edit, true);
-
-// // grantAccess(fileUrl, userEmail, SharingRole.View, false);
