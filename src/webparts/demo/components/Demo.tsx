@@ -177,52 +177,63 @@ const Demo: React.FC<IDemoProps> = ({ context }) => {
   const totalDocs: number = items.reduce((acc: number, item: IFile) => acc + Number(item.Size), 0);
 
   return (
-       <div className={styles.demo}>
-      <div className={"ms-Grid-row ms-bgColor-themeDark ms-fontColor-white " + styles.row}>
-        <div className="ms-Grid-col ms-u-lg10 ms-u-xl8 ms-u-xlPush2 ms-u-lgPush1">
-          <span className="ms-font-xl ms-fontColor-white">Welcome to Yehfedra SharePoint PnP/sp Demo</span>
-          {getErrors()}
+<div className={styles.demo}>
+  <div className={"ms-Grid-row ms-bgColor-themeDark ms-fontColor-white " + styles.titleRow}>
+    <div className="ms-Grid-col ms-u-lg10 ms-u-xl8 ms-u-xlPush2 ms-u-lgPush1">
+      <span className={styles.fontXl}>Welcome to Yehfedra SharePoint PnP/sp Demo</span>
+      {getErrors()}
 
-          <p className="ms-font-l ms-fontColor-white">Current User Email: <User color="blue" size={20} /> {userEmail}</p>
-          <p className="ms-font-l ms-fontColor-white">List of documents:</p>
-          <div>
-            <div className={styles.row}>
-              <div className={styles.left}>Name</div>
-              <div className={styles.right}>Size (KB)</div>
-              <div className={styles.left}>Locked By</div>
-              <div className={`${styles.clear} ${styles.header}`} />
+      <p className={styles.fontL}>
+        Current User Email: <User color="blue" size={20} /> {userEmail}
+      </p>
+      <p className={styles.fontL}>List of documents:</p>
+      <div>
+        <div className={styles.titleRow}>
+          <div className={styles.headerCell}>Title</div>
+          <div className={styles.headerCell}>Name</div>
+          <div className={styles.headerCell}>Size (KB)</div>
+          <div className={styles.clear} />
+        </div>
+        {items.map((item, idx) => (
+          <div key={idx} className={styles.row}>
+            <div className={styles.cell}>
+              <div className={styles.cell}>{item.Title}</div>
+
+              <input
+                type="text"
+                className={styles.inputText}
+                value={newTitles[item.Id] !== undefined ? newTitles[item.Id] : item.Title}
+                onChange={(e) => handleTitleChange(item.Id, e.target.value)}
+              />
+              <button
+                className={styles.updateButton}
+                onClick={() => updateItemTitle(item.Id, newTitles[item.Id] !== undefined ? newTitles[item.Id] : item.Title)}
+              >
+                Update Title
+              </button>
             </div>
-            {items.map((item, idx) => (
-              <div key={idx} className={styles.row}>
-                <div className={styles.left}>{item.Name}</div>
-                <div className={styles.left}>{item.Title}</div>
-                <div className={styles.left}>
-                  <input
-                    type="text"
-                    value={newTitles[item.Id] !== undefined ? newTitles[item.Id] : item.Title}
-                    onChange={(e) => handleTitleChange(item.Id, e.target.value)}
-                  />
-                </div>
-                <div className={styles.right}>{(item.Size / 1024).toFixed(2)}</div>
-                {/* <div className={styles.left}>{item.LockedUser}</div> */}
-                <button onClick={() => updateItemTitle(item.Id, newTitles[item.Id] !== undefined ? newTitles[item.Id] : item.Title)}>
-                  Update Title
-                </button>
-                <div className={styles.clear} />
-              </div>
-            ))}
-            <div className={styles.row}>
-              <div className={`${styles.clear} ${styles.header}`} />
-              <div className={styles.left}>Total: </div>
-              <div className={styles.right}>{(totalDocs / 1024).toFixed(2)}</div>
-              <div className={`${styles.clear} ${styles.header}`} />
+            <div className={styles.cell}>{item.Name}</div>
+            <div className={styles.cell}>
+              {(item.Size / 1024).toFixed(2)} <span className={styles.kb}>(KB)</span>
             </div>
+            <div className={styles.clear} />
           </div>
-          <button onClick={() => readAllFilesSize(LIBRARY_NAME)}>Refresh Files</button>
-          <button onClick={() => batchUpdateItemTitles()}>Update Item Titles</button>
+        ))}
+        <div className={styles.row}>
+          <div className={styles.cellTotal}>Total:</div>
+          <div className={styles.cellTotal}>
+            {(totalDocs / 1024).toFixed(2)} <span className={styles.kb}>(KB)</span>
+          </div>
+          <div className={styles.clear} />
         </div>
       </div>
+      <button className={styles.refreshButton} onClick={() => readAllFilesSize(LIBRARY_NAME)}>Refresh Files</button>
+      <button className={styles.batchUpdateButton} onClick={() => batchUpdateItemTitles()}>Update Item Titles</button>
     </div>
+  </div>
+</div>
+
+
   );
 };
 

@@ -35,5 +35,3 @@ obj
 
 
 # Ignore the serve.json file in the config directory
-config/serve.json
-config
