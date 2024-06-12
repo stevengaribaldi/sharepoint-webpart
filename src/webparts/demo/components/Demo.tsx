@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-use-before-define */
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import styles from "./Demo.module.scss";
 import { IFile, IResponseItem } from "./interface";
@@ -17,11 +18,10 @@ import { Logger, LogLevel } from "@pnp/logging";
 import { Caching } from "@pnp/queryable";
 import Bottleneck from 'bottleneck';
 import { User } from 'lucide-react';
-
 export interface IDemoProps {
   description: string;
   sp: SPFI;
-  context: any | undefined;
+  context: any;
 }
 
 const Demo: React.FC<IDemoProps> = ({ context }) => {
@@ -79,14 +79,11 @@ const Demo: React.FC<IDemoProps> = ({ context }) => {
         )
       );
 
-      const files: IFile[] = await Promise.all(response.map(async (item: IResponseItem) => {
-        // const lockedByUser = await getLockedByUser(item.FileLeafRef);
-        return {
-          Id: item.Id,
-          Title: item.Title,
-          Size: item.File.Length,
-          Name: item.FileLeafRef,
-        };
+      const files: IFile[] = response.map((item: IResponseItem) => ({
+        Id: item.Id,
+        Title: item.Title,
+        Size: item.File.Length,
+        Name: item.FileLeafRef,
       }));
 
       console.log(`Files retrieved: ${JSON.stringify(files)}`);
@@ -113,29 +110,26 @@ const Demo: React.FC<IDemoProps> = ({ context }) => {
       const [batchedSP, execute] = spInstance.batched();
       const list = batchedSP.web.lists.getByTitle(LIBRARY_NAME);
 
-      const updatedItems = await Promise.all(items.map(async (item) => {
-        try {
-          await list.items.getById(item.Id).update({ Title: `${item.Name}-updated` });
-          return { ...item, Title: `${item.Name}-updated` };
-        } catch (error) {
+      for (const item of items) {
+        list.items.getById(item.Id).update({ Title: `${item.Name}-updated` }).catch(async (error) => {
           if (error.message.includes('is locked for shared use')) {
             const lockedByUser = await getLockedByUser(item.Name);
-            return { ...item, LockedUser: lockedByUser };
+            const errorMessage = `File is locked: ${item.Name} by ${lockedByUser}`;
+            setErrors(prevErrors => [...prevErrors, errorMessage]);
           } else {
             throw error;
           }
-        }
-      }));
+        });
+      }
 
       await execute();
       console.log(`Batch update executed`);
-      setItems(updatedItems);
       await readAllFilesSize(LIBRARY_NAME);
     } catch (error) {
       Logger.write(`Error batch updating item titles: ${JSON.stringify(error)}`, LogLevel.Error);
       setErrors(prevErrors => [...prevErrors, error.message]);
     }
-  }, [spInstance, items,  readAllFilesSize]);
+  }, [spInstance, items, readAllFilesSize]);
 
   const updateItemTitle = useCallback(async (itemId: number, newTitle: string): Promise<void> => {
     try {
@@ -159,20 +153,13 @@ const Demo: React.FC<IDemoProps> = ({ context }) => {
   const getLockedByUser = useCallback(async (fileName: string): Promise<string> => {
     try {
       const file = spInstance.web.getFolderByServerRelativePath(LIBRARY_NAME).files.getByUrl(fileName);
-      const url = file.toUrl();
-      console.log(`Checking file at URL: ${url}`);
-      await file.select('Exists')();
       const user = await file.getLockedByUser();
       console.log(`Locked by user retrieved: ${user?.Email}`);
-      return user?.Email || 'none';
+      return user?.Email || 'Unknown user';
     } catch (error) {
-      if (error?.message?.includes('System.IO.FileNotFoundException')) {
-        Logger.write(`File not found: ${fileName}`, LogLevel.Error);
-        return 'none';
-      }
       Logger.write(`Error getting locked by user for file ${fileName}: ${JSON.stringify(error)}`, LogLevel.Error);
       console.error("Error in getLockedByUser:", error);
-      return 'none';
+      return 'Unknown user';
     }
   }, [spInstance, LIBRARY_NAME]);
 
@@ -190,7 +177,7 @@ const Demo: React.FC<IDemoProps> = ({ context }) => {
   const totalDocs: number = items.reduce((acc: number, item: IFile) => acc + Number(item.Size), 0);
 
   return (
-    <div className={styles.demo}>
+       <div className={styles.demo}>
       <div className={"ms-Grid-row ms-bgColor-themeDark ms-fontColor-white " + styles.row}>
         <div className="ms-Grid-col ms-u-lg10 ms-u-xl8 ms-u-xlPush2 ms-u-lgPush1">
           <span className="ms-font-xl ms-fontColor-white">Welcome to Yehfedra SharePoint PnP/sp Demo</span>
